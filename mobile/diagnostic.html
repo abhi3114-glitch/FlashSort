@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>FlashSort Diagnostic</title>
+    <style>
+        body {
+            font-family: Arial;
+            background: #111;
+            color: #eee;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+        }
+
+        #qrCanvas {
+            border: 2px solid #555;
+        }
+
+        #log {
+            margin-top: 10px;
+            max-width: 90%;
+            overflow: auto;
+        }
+    </style>
+</head>
+
+<body>
+    <h2>FlashSort Diagnostic</h2>
+    <canvas id="qrCanvas" width="300" height="300"></canvas>
+    <div id="log"></div>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+    <script>
+        const canvas = document.getElementById('qrCanvas');
+        const ctx = canvas.getContext('2d');
+        const logDiv = document.getElementById('log');
+        function log(msg) { const p = document.createElement('p'); p.textContent = msg; logDiv.appendChild(p); }
+        // Create a test packet
+        const payload = 'HelloWorld';
+        const b64 = btoa(payload);
+        function crc32(str) { const bytes = new TextEncoder().encode(str); let crc = 0xFFFFFFFF; const table = new Uint32Array(256); for (let i = 0; i < 256; i++) { let c = i; for (let j = 0; j < 8; j++) { c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1); } table[i] = c; } for (let i = 0; i < bytes.length; i++) { crc = (crc >>> 8) ^ table[(crc ^ bytes[i]) & 0xFF]; } return (crc ^ 0xFFFFFFFF) >>> 0; }
+        const crc = crc32(payload);
+        const packet = `testfile:0:1:${crc}:${b64}`;
+        log('Generated packet: ' + packet);
+        QRCode.toCanvas(canvas, packet, { errorCorrectionLevel: 'M', margin: 2, width: 300 }, err => { if (err) log('QR error: ' + err); else log('QR drawn'); });
+        // Scan after short delay
+        setTimeout(() => {
+            const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const code = jsQR(imgData.data, imgData.width, imgData.height, { inversionAttempts: 'attemptBoth' });
+            if (code) { log('Detected QR data: ' + code.data); } else { log('No QR detected'); }
+        }, 500);
+    </script>
+</body>
+
+</html>

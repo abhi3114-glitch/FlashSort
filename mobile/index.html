@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>FlashSort Mobile Receiver</title>
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+    <style>
+        :root {
+            --bg-dark: #0d1117;
+            --surface: #161b22;
+            --accent: #58a6ff;
+            --success: #3fb950;
+            --text: #c9d1d9;
+            --text-muted: #8b949e;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: var(--bg-dark);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        header {
+            background: var(--surface);
+            padding: 1rem;
+            text-align: center;
+            border-bottom: 1px solid #30363d;
+        }
+
+        header h1 {
+            font-size: 1.5rem;
+            background: linear-gradient(135deg, var(--accent), #a371f7);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        header p {
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            margin-top: 0.25rem;
+        }
+
+        .container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 1rem;
+            gap: 1rem;
+        }
+
+        .video-wrapper {
+            position: relative;
+            width: 100%;
+            max-width: 400px;
+            margin: 0 auto;
+            border-radius: 12px;
+            overflow: hidden;
+            background: #000;
+            aspect-ratio: 1;
+        }
+
+        #video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        #canvas {
+            display: none;
+        }
+
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            pointer-events: none;
+        }
+
+        .scan-line {
+            position: absolute;
+            width: 100%;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--accent), transparent);
+            animation: scan 2s linear infinite;
+        }
+
+        @keyframes scan {
+            0% {
+                top: 0;
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.5;
+            }
+
+            100% {
+                top: 100%;
+                opacity: 1;
+            }
+        }
+
+        .corner {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            border: 3px solid var(--accent);
+        }
+
+        .corner.tl {
+            top: 10px;
+            left: 10px;
+            border-right: none;
+            border-bottom: none;
+        }
+
+        .corner.tr {
+            top: 10px;
+            right: 10px;
+            border-left: none;
+            border-bottom: none;
+        }
+
+        .corner.bl {
+            bottom: 10px;
+            left: 10px;
+            border-right: none;
+            border-top: none;
+        }
+
+        .corner.br {
+            bottom: 10px;
+            right: 10px;
+            border-left: none;
+            border-top: none;
+        }
+
+        .stats {
+            background: var(--surface);
+            border-radius: 12px;
+            padding: 1rem;
+        }
+
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid #30363d;
+        }
+
+        .stat-row:last-child {
+            border-bottom: none;
+        }
+
+        .stat-label {
+            color: var(--text-muted);
+        }
+
+        .stat-value {
+            font-weight: 600;
+            color: var(--accent);
+        }
+
+        .progress-container {
+            background: var(--surface);
+            border-radius: 12px;
+            padding: 1rem;
+        }
+
+        .progress-bar {
+            height: 24px;
+            background: #30363d;
+            border-radius: 12px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent), var(--success));
+            border-radius: 12px;
+            transition: width 0.3s ease;
+            width: 0%;
+        }
+
+        .progress-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-weight: 600;
+            font-size: 0.85rem;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+        }
+
+        .btn {
+            display: block;
+            width: 100%;
+            padding: 1rem;
+            border: none;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent), #a371f7);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(88, 166, 255, 0.3);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, var(--success), #2ea043);
+            color: white;
+        }
+
+        .status {
+            text-align: center;
+            padding: 0.75rem;
+            border-radius: 8px;
+            font-size: 0.9rem;
+        }
+
+        .status.scanning {
+            background: rgba(88, 166, 255, 0.1);
+            color: var(--accent);
+        }
+
+        .status.complete {
+            background: rgba(63, 185, 80, 0.1);
+            color: var(--success);
+        }
+
+        .flash {
+            animation: flash 0.1s ease;
+        }
+
+        @keyframes flash {
+            0% {
+                background: rgba(63, 185, 80, 0.3);
+            }
+
+            100% {
+                background: transparent;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <header>
+        <h1>⚡ FlashSort Receiver</h1>
+        <p>Point camera at the flashing QR codes</p>
+    </header>
+
+    <div class="container">
+        <div class="video-wrapper" id="videoWrapper">
+            <video id="video" autoplay playsinline muted></video>
+            <canvas id="canvas"></canvas>
+            <div class="overlay">
+                <div class="scan-line"></div>
+                <div class="corner tl"></div>
+                <div class="corner tr"></div>
+                <div class="corner bl"></div>
+                <div class="corner br"></div>
+            </div>
+        </div>
+
+        <div class="progress-container">
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+                <span class="progress-text" id="progressText">0%</span>
+            </div>
+        </div>
+
+        <div class="stats">
+            <div class="stat-row">
+                <span class="stat-label">Chunks Received</span>
+                <span class="stat-value" id="chunksReceived">0 / 0</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">File ID</span>
+                <span class="stat-value" id="fileId">--</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">Scan Rate</span>
+                <span class="stat-value" id="scanRate">0 fps</span>
+            </div>
+        </div>
+
+        <div class="status scanning" id="status">
+            Waiting for camera...
+        </div>
+
+        <button class="btn btn-primary" id="startBtn">Start Camera</button>
+        <button class="btn btn-success" id="downloadBtn" style="display: none;">Download File</button>
+    </div>
+
+    <script>
+        // Protocol Implementation (must match Python version)
+        class FileReassembler {
+            constructor() {
+                this.chunks = {};
+                this.totalChunks = 0;
+                this.fileId = null;
+            }
+
+            parsePacket(dataStr) {
+                try {
+                    const parts = dataStr.split(':');
+                    if (parts.length < 5) return null;
+
+                    const fileId = parts[0];
+                    const sequence = parseInt(parts[1]);
+                    const totalChunks = parseInt(parts[2]);
+                    const crcClaimed = parseInt(parts[3]);
+                    const b64Data = parts.slice(4).join(':'); // In case payload has colons
+
+                    // Decode base64
+                    const payload = Uint8Array.from(atob(b64Data), c => c.charCodeAt(0));
+
+                    // CRC32 check
+                    const crcCalc = this.crc32(payload);
+                    if (crcCalc !== crcClaimed) {
+                        console.warn(`CRC mismatch: expected ${crcClaimed}, got ${crcCalc}`);
+                        return null;
+                    }
+
+                    return { fileId, sequence, totalChunks, payload };
+                } catch (e) {
+                    console.error('Parse error:', e);
+                    return null;
+                }
+            }
+
+            crc32(data) {
+                let crc = 0xFFFFFFFF;
+                const table = this.getCRC32Table();
+                for (let i = 0; i < data.length; i++) {
+                    crc = (crc >>> 8) ^ table[(crc ^ data[i]) & 0xFF];
+                }
+                return (crc ^ 0xFFFFFFFF) >>> 0;
+            }
+
+            getCRC32Table() {
+                if (!this._crc32Table) {
+                    this._crc32Table = new Uint32Array(256);
+                    for (let i = 0; i < 256; i++) {
+                        let c = i;
+                        for (let j = 0; j < 8; j++) {
+                            c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+                        }
+                        this._crc32Table[i] = c;
+                    }
+                }
+                return this._crc32Table;
+            }
+
+            addPacket(packet) {
+                if (!packet) return false;
+
+                if (this.fileId === null) {
+                    this.fileId = packet.fileId;
+                    this.totalChunks = packet.totalChunks;
+                }
+
+                if (packet.fileId !== this.fileId) return false;
+
+                if (!(packet.sequence in this.chunks)) {
+                    this.chunks[packet.sequence] = packet.payload;
+                    return true; // New chunk
+                }
+                return false; // Duplicate
+            }
+
+            getProgress() {
+                return {
+                    received: Object.keys(this.chunks).length,
+                    total: this.totalChunks
+                };
+            }
+
+            isComplete() {
+                return Object.keys(this.chunks).length === this.totalChunks && this.totalChunks > 0;
+            }
+
+            getFile() {
+                if (!this.isComplete()) return null;
+
+                // Calculate total size
+                let totalSize = 0;
+                for (let i = 0; i < this.totalChunks; i++) {
+                    totalSize += this.chunks[i].length;
+                }
+
+                // Combine chunks
+                const result = new Uint8Array(totalSize);
+                let offset = 0;
+                for (let i = 0; i < this.totalChunks; i++) {
+                    result.set(this.chunks[i], offset);
+                    offset += this.chunks[i].length;
+                }
+
+                return result;
+            }
+
+            reset() {
+                this.chunks = {};
+                this.totalChunks = 0;
+                this.fileId = null;
+            }
+        }
+
+        // UI State
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        const startBtn = document.getElementById('startBtn');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const progressFill = document.getElementById('progressFill');
+        const progressText = document.getElementById('progressText');
+        const chunksReceived = document.getElementById('chunksReceived');
+        const fileIdEl = document.getElementById('fileId');
+        const scanRateEl = document.getElementById('scanRate');
+        const statusEl = document.getElementById('status');
+        const videoWrapper = document.getElementById('videoWrapper');
+
+        let reassembler = new FileReassembler();
+        let scanning = false;
+        let scanCount = 0;
+        let lastScanTime = Date.now();
+
+        startBtn.addEventListener('click', async () => {
+            if (scanning) {
+                stopScanning();
+            } else {
+                await startScanning();
+            }
+        });
+
+        downloadBtn.addEventListener('click', () => {
+            const fileData = reassembler.getFile();
+            if (fileData) {
+                const blob = new Blob([fileData]);
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `received_${reassembler.fileId || 'file'}`;
+                a.click();
+                URL.revokeObjectURL(url);
+            }
+        });
+
+        async function startScanning() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
+                });
+
+                video.srcObject = stream;
+                await video.play();
+
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+
+                scanning = true;
+                startBtn.textContent = 'Stop Camera';
+                statusEl.textContent = 'Scanning for QR codes...';
+                statusEl.className = 'status scanning';
+
+                reassembler.reset();
+                scanLoop();
+
+            } catch (err) {
+                console.error('Camera error:', err);
+                statusEl.textContent = 'Camera access denied. Please allow camera permission.';
+            }
+        }
+
+        function stopScanning() {
+            scanning = false;
+            if (video.srcObject) {
+                video.srcObject.getTracks().forEach(track => track.stop());
+            }
+            startBtn.textContent = 'Start Camera';
+            statusEl.textContent = 'Camera stopped';
+        }
+
+        function scanLoop() {
+            if (!scanning) return;
+
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+            // Try with multiple inversion attempts for better detection
+            const code = jsQR(imageData.data, imageData.width, imageData.height, {
+                inversionAttempts: 'attemptBoth'
+            });
+
+            if (code) {
+                // Show what we detected in status
+                statusEl.textContent = `Detected: ${code.data.substring(0, 30)}...`;
+
+                const packet = reassembler.parsePacket(code.data);
+                if (packet) {
+                    if (reassembler.addPacket(packet)) {
+                        // New chunk received - flash feedback
+                        videoWrapper.classList.add('flash');
+                        setTimeout(() => videoWrapper.classList.remove('flash'), 100);
+
+                        scanCount++;
+                        updateUI();
+                    }
+                } else {
+                    // QR detected but packet parse failed
+                    statusEl.textContent = `QR found but invalid packet format`;
+                }
+            }
+
+            // Update scan rate
+            const now = Date.now();
+            if (now - lastScanTime > 1000) {
+                scanRateEl.textContent = `${scanCount} fps`;
+                scanCount = 0;
+                lastScanTime = now;
+            }
+
+            if (reassembler.isComplete()) {
+                statusEl.textContent = '✅ File received successfully!';
+                statusEl.className = 'status complete';
+                downloadBtn.style.display = 'block';
+                stopScanning();
+            } else {
+                requestAnimationFrame(scanLoop);
+            }
+        }
+
+        function updateUI() {
+            const progress = reassembler.getProgress();
+            const pct = progress.total > 0 ? Math.round((progress.received / progress.total) * 100) : 0;
+
+            progressFill.style.width = `${pct}%`;
+            progressText.textContent = `${pct}%`;
+            chunksReceived.textContent = `${progress.received} / ${progress.total}`;
+            fileIdEl.textContent = reassembler.fileId || '--';
+        }
+    </script>
+</body>
+
+</html>

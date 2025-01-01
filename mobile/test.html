@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FlashSort - Test QR</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #1a1a2e;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            text-align: center;
+        }
+
+        h1 {
+            color: #58a6ff;
+        }
+
+        .qr-container {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            margin: 20px 0;
+        }
+
+        img {
+            max-width: 300px;
+        }
+
+        p {
+            color: #8b949e;
+            max-width: 400px;
+        }
+
+        code {
+            background: #30363d;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Test QR Code</h1>
+    <div class="qr-container">
+        <img id="qrImg" src="" alt="Test QR Code">
+    </div>
+    <p>This is a static test QR with a simple FlashSort packet.</p>
+    <p><strong>Expected data:</strong></p>
+    <p><code id="expectedData"></code></p>
+    <p>Open the mobile receiver and try to scan this. If it detects it, you'll see the stats update.</p>
+
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+    <script>
+        // Create a simple test packet: file_id:seq:total:crc:b64data
+        // "Hello" in base64 is "SGVsbG8="
+        // We need to calculate CRC32 of "Hello" bytes
+        function crc32(str) {
+            const bytes = new TextEncoder().encode(str);
+            let crc = 0xFFFFFFFF;
+            const table = new Uint32Array(256);
+            for (let i = 0; i < 256; i++) {
+                let c = i;
+                for (let j = 0; j < 8; j++) {
+                    c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+                }
+                table[i] = c;
+            }
+            for (let i = 0; i < bytes.length; i++) {
+                crc = (crc >>> 8) ^ table[(crc ^ bytes[i]) & 0xFF];
+            }
+            return (crc ^ 0xFFFFFFFF) >>> 0;
+        }
+
+        const testPayload = "Hello";
+        const b64 = btoa(testPayload);
+        const crc = crc32(testPayload);
+        const packet = `test0001:0:1:${crc}:${b64}`;
+
+        document.getElementById('expectedData').textContent = packet;
+
+        QRCode.toDataURL(packet, {
+            errorCorrectionLevel: 'M',
+            margin: 2,
+            width: 300
+        }).then(url => {
+            document.getElementById('qrImg').src = url;
+        });
+    </script>
+</body>
+
+</html>
